@@ -22,6 +22,13 @@ const LOCATION_DATA: Record<string, string[]> = {
   "output klin 5": ["cam 8"],
 };
 
+interface AlertLog {
+  id: string;
+  camera: string;
+  time: string;
+  msg: string;
+}
+
 const getCameraLabel = (cameraId: string) => CAMERA_LABELS[cameraId] ?? cameraId;
 
 // 🎥 LIVE VIDEO STREAM COMPONENT
@@ -56,7 +63,7 @@ function CameraView({ cameraId }: { cameraId: string }) {
         }
       }
     };
-
+    
     // Calculate actual live incoming FPS for this camera view
     const fpsInterval = setInterval(() => {
       setFps(frameCountRef.current);
@@ -95,11 +102,14 @@ function CameraView({ cameraId }: { cameraId: string }) {
 export function CameraGrid() {
   const initialCameras = ['cam 1', 'cam 2', 'cam 3', 'cam 4', 'cam 5', 'cam 6', 'cam 7', 'cam 8'];
   
-  // Navigation Active State Variables
   const [selectedLocation, setSelectedLocation] = useState<string>('');
   const [selectedCamera, setSelectedCamera] = useState<string>('');
   const [isLocationOpen, setIsLocationOpen] = useState<boolean>(false);
   const [isCameraOpen, setIsCameraOpen] = useState<boolean>(false);
+  const [isMounted, setIsMounted] = useState<boolean>(false);
+  const [alerts, setAlerts] = useState<AlertLog[]>([
+    { id: 'init', camera: 'SYSTEM', time: '00:00:00', msg: 'Photoelectric network broker interface connection active.' }
+  ]);
 
   // Reset function to clear dropdown paths
   const handleShowAll = () => {
@@ -109,8 +119,36 @@ export function CameraGrid() {
     setIsCameraOpen(false);
   };
 
+  // Prevent hydration styling flashes on production cloud networks
+  useEffect(() => {
+    setIsMounted(true);
+
+    const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+    const alertsWs = new WebSocket(`ws://${host}:8000/ws/alerts`);
+
+    alertsWs.onmessage = (event) => {
+      try {
+        const parsedAlert = JSON.parse(event.data);
+        const newLog: AlertLog = {
+          id: Math.random().toString(36).substring(2, 9),
+          camera: parsedAlert.camera,
+          time: parsedAlert.time,
+          msg: parsedAlert.msg
+        };
+        setAlerts((prev) => [newLog, ...prev.slice(0, 49)]);
+      } catch (err) {
+        console.error("Failed compiling message frame data content packets parsing mapping context error: ", err);
+      }
+    };
+
+    return () => alertsWs.close();
+  }, []);
+
+  if (!isMounted) {
+    return <div className="min-h-screen bg-slate-950 flex items-center justify-center font-mono text-xs text-slate-500">Initializing Terminal Grid Systems...</div>;
+  }
   return (
-    <div className="flex flex-col h-screen overflow-hidden font-sans">
+    <div className="flex flex-col h-screen overflow-hidden font-sans bg-slate-950 text-white">
       
       {/* 1. TOP UTILITY HUD BAR */}
       <header className="h-14 border-b border-slate-800 bg-slate-900/40 backdrop-blur-md flex items-center justify-between px-6 z-20 shrink-0">
