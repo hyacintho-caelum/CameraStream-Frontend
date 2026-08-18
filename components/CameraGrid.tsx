@@ -34,8 +34,9 @@ function CameraView({ cameraId }: { cameraId: string }) {
   useEffect(() => {
     // Open a real-time binary stream channel to your FastAPI backend
     // DYNAMIC RECON: This forces any phone or laptop on your router network to read your camera boxes automatically!
-    const ws = new WebSocket(`ws://${window.location.hostname}:8000/ws/stream/${cameraId}`);
-
+    const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+    const ws = new WebSocket(`ws://${host}:8000/ws/stream/${cameraId}`);
+    
     ws.binaryType = 'blob';
 
     ws.onopen = () => setStatus('online');
