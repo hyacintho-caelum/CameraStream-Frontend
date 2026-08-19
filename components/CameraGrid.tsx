@@ -42,7 +42,9 @@ function CameraView({ cameraId }: { cameraId: string }) {
     // Open a real-time binary stream channel to your FastAPI backend
     // DYNAMIC RECON: This forces any phone or laptop on your router network to read your camera boxes automatically!
     const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-    const ws = new WebSocket(`ws://${host}:8000/ws/stream/${cameraId}`);
+    //(Use wss:// for encryption!)
+    const ws = new WebSocket(`https://nine-crews-bet.loca.lt/ws/stream/${cameraId}`);
+
     
     ws.binaryType = 'blob';
 
@@ -124,7 +126,7 @@ export function CameraGrid() {
     setIsMounted(true);
 
     const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-    const alertsWs = new WebSocket(`ws://${host}:8000/ws/alerts`);
+    const alertsWs = new WebSocket(`https://nine-crews-bet.loca.lt/ws/stream/${cameraId}`);
 
     alertsWs.onmessage = (event) => {
       try {
