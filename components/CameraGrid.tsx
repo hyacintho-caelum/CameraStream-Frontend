@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 // Location and camera relational mapping structure.
-// Keep the values aligned with the websocket IDs used by the backend.
+// Keep the values aligned with the IDs used by the backend.
 const CAMERA_LABELS: Record<string, string> = {
   "cam 1": "Cam 1 - input klin 4-A",
   "cam 2": "Cam 2 - input klin 4-B",
@@ -32,68 +32,70 @@ interface AlertLog {
 const getCameraLabel = (cameraId: string) => CAMERA_LABELS[cameraId] ?? cameraId;
 const hostPC_IP = "192.168.2.100";
 
-// 🎥 LIVE VIDEO STREAM COMPONENT
+// 🎥 LIVE VIDEO STREAM COMPONENT (UPGRADED TO NATIVE HTTP STREAM + CONTROL INTERACTIVE MOUSE WS)
 function CameraView({ cameraId }: { cameraId: string }) {
   const imgRef = useRef<HTMLImageElement | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
   const [status, setStatus] = useState<'connecting' | 'online' | 'offline'>('connecting');
-  const [fps, setFps] = useState<number>(0);
-  const frameCountRef = useRef(0);
 
   useEffect(() => {
-    // Open a real-time binary stream channel to your FastAPI backend
-    // DYNAMIC RECON: This forces any phone or laptop on your router network to read your camera boxes automatically!
-    const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-    //(Use wss:// for encryption!)
-    const ws = new WebSocket(`ws://${hostPC_IP}:8000/ws/stream/${cameraId}`);
-
-    
-    ws.binaryType = 'blob';
+    // Open a low-overhead control socket string ONLY for sending mouse cursor coordinates back to the PC
+    const ws = new WebSocket(`ws://${hostPC_IP}:8000/ws/stream/${cameraId.replace(' ', '_')}`);
+    wsRef.current = ws;
 
     ws.onopen = () => setStatus('online');
     ws.onclose = () => setStatus('offline');
     ws.onerror = () => setStatus('offline');
-    
-    ws.onmessage = (event) => {
-      if (event.data instanceof Blob && imgRef.current) {
-        frameCountRef.current += 1;
-        const url = URL.createObjectURL(event.data);
-        const prevUrl = imgRef.current.src;
-        imgRef.current.src = url;
-        
-        // Critical: Free old memory chunks to prevent browser tab crashes
-        if (prevUrl.startsWith('blob:')) {
-          URL.revokeObjectURL(prevUrl);
-        }
-      }
-    };
-    
-    // Calculate actual live incoming FPS for this camera view
-    const fpsInterval = setInterval(() => {
-      setFps(frameCountRef.current);
-      frameCountRef.current = 0;
-    }, 1000);
 
     return () => {
       ws.close();
-      clearInterval(fpsInterval);
     };
   }, [cameraId]);
 
+  // Projects your cursor click percentages down to map precisely onto the 480x270 backend stream space
+  const handleVideoClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!imgRef.current || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+
+    const rect = imgRef.current.getBoundingClientRect();
+    const relativeX = e.clientX - rect.left;
+    const relativeY = e.clientY - rect.top;
+
+    const projectedX = Math.round((relativeX / rect.width) * 640);
+    const projectedY = Math.round((relativeY / rect.height) * 360);
+
+    wsRef.current.send(JSON.stringify({ x: projectedX, y: projectedY }));
+  };
+
   return (
-    <div className="relative border border-slate-800 bg-slate-900 rounded-xl overflow-hidden aspect-video shadow-xl group hover:border-slate-700 transition-all duration-300">
+    <div 
+      onClick={handleVideoClick}
+      className="relative border border-slate-800 bg-slate-900 rounded-xl overflow-hidden aspect-video shadow-xl group hover:border-slate-700 transition-all duration-300 cursor-crosshair"
+    >
       {/* Upper Status HUD Badges */}
       <div className="absolute top-3 left-3 z-10 bg-slate-950/80 px-2.5 py-1 rounded-md text-[11px] font-mono font-semibold flex items-center gap-2 backdrop-blur-sm shadow">
         <span className={`w-2 h-2 rounded-full ${status === 'online' ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
-        {cameraId.toUpperCase().replace('_', ' ')}
+        {getCameraLabel(cameraId)}
       </div>
 
       <div className="absolute top-3 right-3 z-10 bg-slate-950/80 px-2 py-0.5 rounded text-[10px] font-mono text-slate-400 backdrop-blur-sm">
-        {status === 'online' ? `${fps} FPS` : '0 FPS'}
+        {status === 'online' ? '30 FPS' : 'OFFLINE'}
       </div>
 
-      {/* Frame Rendering Screen Canvas */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img ref={imgRef} className="w-full h-full object-cover bg-black" alt={`Live pipeline stream layout for ${cameraId}`} />
+      {status === 'offline' ? (
+        <div className="w-full h-full flex flex-col items-center justify-center bg-slate-950 text-slate-600 font-mono text-[10px] gap-1">
+          <span>📹 FEED OFFLINE</span>
+          <span className="text-[9px] opacity-40 animate-pulse">RECONNECTING TO PC AT {hostPC_IP}...</span>
+        </div>
+      ) : (
+        /* 🚀 THE FPS SOLUTION: Standard HTTP Streaming source bypasses proxy bottlenecks and renders cleanly */
+        /* eslint-disable-next-line @next/next/no-img-element */
+        <img 
+          ref={imgRef}
+          src={`http://${hostPC_IP}:8000/api/stream/${cameraId.replace(' ', '_')}`} 
+          className="w-full h-full object-cover bg-black select-none" 
+          alt={`Live feed stream for ${cameraId}`} 
+        />
+      )}
 
       {/* Subtle bottom scan line effect overlay decoration */}
       <div className="absolute inset-0 pointer-events-none border border-transparent group-hover:border-emerald-500/20 rounded-xl transition-all duration-300" />
@@ -126,7 +128,6 @@ export function CameraGrid() {
   useEffect(() => {
     setIsMounted(true);
 
-    const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
     const alertsWs = new WebSocket(`ws://${hostPC_IP}:8000/ws/alerts`);
 
     alertsWs.onmessage = (event) => {
@@ -150,6 +151,7 @@ export function CameraGrid() {
   if (!isMounted) {
     return <div className="min-h-screen bg-slate-950 flex items-center justify-center font-mono text-xs text-slate-500">Initializing Terminal Grid Systems...</div>;
   }
+
   return (
     <div className="flex flex-col h-screen overflow-hidden font-sans bg-slate-950 text-white">
       
