@@ -1,12 +1,19 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+
+  // 🚀 CRITICAL SCRIPT HYDRATION FIX: 
+  // Forces the engine to wait until your laptop browser is 100% ready before painting layout containers!
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -14,8 +21,9 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // DYNAMIC ROUTE FIX: Forces laptop to query the hosting PC network origin
-      const res = await fetch(`${window.location.origin}/api/auth`, {
+      const targetOrigin = typeof window !== 'undefined' ? window.location.origin : '';
+      
+      const res = await fetch(`${targetOrigin}/api/auth`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password }),
@@ -24,7 +32,9 @@ export default function LoginPage() {
       const data = await res.json();
 
       if (res.ok && data.success) {
-        window.location.replace('/');
+        if (typeof window !== 'undefined') {
+          window.location.replace('/');
+        }
       } else {
         setError(data.message || 'Authentication rejected.');
       }
@@ -33,7 +43,18 @@ export default function LoginPage() {
     } finally {
       setLoading(false);
     }
+  };
 
+  // While the browser prepares the engine assets, show a clean, native loading text
+  if (!isMounted) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center font-mono text-xs text-slate-500">
+        INITIALIZING SECURITY GATEWAY MODULE...
+      </div>
+    );
+  }
+
+  return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4 text-white font-sans">
       <div className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl backdrop-blur-sm">
         <div className="text-center mb-6">
@@ -43,7 +64,7 @@ export default function LoginPage() {
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label className="block text-[10px] font-mono tracking-widest text-slate-400 uppercase mb-1.5">OperatorID</label>
+            <label className="block text-[10px] font-mono tracking-widest text-slate-400 uppercase mb-1.5">Operator ID</label>
             <input 
               type="text" 
               required
@@ -56,7 +77,7 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <label className="block text-[10px] font-mono tracking-widest text-slate-400 uppercase mb-1.5">password</label>
+            <label className="block text-[10px] font-mono tracking-widest text-slate-400 uppercase mb-1.5">Security Token</label>
             <input 
               type="password" 
               required
@@ -64,7 +85,7 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-emerald-500/50 transition-all font-mono text-slate-200"
-              placeholder="••••••••"
+              placeholder="password"
             />
           </div>
 
@@ -84,5 +105,5 @@ export default function LoginPage() {
         </form>
       </div>
     </div>
-  }
+  );
 }
