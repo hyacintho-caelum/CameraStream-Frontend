@@ -126,7 +126,7 @@ export function CameraGrid() {
     setIsMounted(true);
 
     const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-    const alertsWs = new WebSocket(`https://nine-crews-bet.loca.lt/ws/stream/${cameraId}`);
+    const alertsWs = new WebSocket(`https://nine-crews-bet.loca.lt/ws/alerts`);
 
     alertsWs.onmessage = (event) => {
       try {
