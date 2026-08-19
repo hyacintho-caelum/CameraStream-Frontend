@@ -30,6 +30,7 @@ interface AlertLog {
 }
 
 const getCameraLabel = (cameraId: string) => CAMERA_LABELS[cameraId] ?? cameraId;
+const hostPC_IP = "192.168.2.100";
 
 // 🎥 LIVE VIDEO STREAM COMPONENT
 function CameraView({ cameraId }: { cameraId: string }) {
@@ -43,7 +44,7 @@ function CameraView({ cameraId }: { cameraId: string }) {
     // DYNAMIC RECON: This forces any phone or laptop on your router network to read your camera boxes automatically!
     const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
     //(Use wss:// for encryption!)
-    const ws = new WebSocket(`https://nine-crews-bet.loca.lt/ws/stream/${cameraId}`);
+    const ws = new WebSocket(`ws://${hostPC_IP}:8000/ws/stream/${cameraId}`);
 
     
     ws.binaryType = 'blob';
@@ -126,7 +127,7 @@ export function CameraGrid() {
     setIsMounted(true);
 
     const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-    const alertsWs = new WebSocket(`https://nine-crews-bet.loca.lt/ws/alerts`);
+    const alertsWs = new WebSocket(`ws://${hostPC_IP}:8000/ws/alerts`);
 
     alertsWs.onmessage = (event) => {
       try {
