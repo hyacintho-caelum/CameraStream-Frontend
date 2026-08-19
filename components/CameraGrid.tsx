@@ -40,7 +40,8 @@ function CameraView({ cameraId }: { cameraId: string }) {
 
   useEffect(() => {
     // Open a low-overhead control socket string ONLY for sending mouse cursor coordinates back to the PC
-    const ws = new WebSocket(`ws://${hostPC_IP}:8000/ws/stream/${cameraId.replace(' ', '_')}`);
+    const ws = new WebSocket(`ws://${hostPC_IP}:8000/ws/stream/${cameraId}`);
+
     wsRef.current = ws;
 
     ws.onopen = () => setStatus('online');
@@ -91,7 +92,7 @@ function CameraView({ cameraId }: { cameraId: string }) {
         /* eslint-disable-next-line @next/next/no-img-element */
         <img 
           ref={imgRef}
-          src={`http://${hostPC_IP}:8000/api/stream/${cameraId.replace(' ', '_')}`} 
+          src={`http://${hostPC_IP}:8000/api/stream/${cameraId}`} 
           className="w-full h-full object-cover bg-black select-none" 
           alt={`Live feed stream for ${cameraId}`} 
         />
